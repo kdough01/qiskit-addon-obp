@@ -202,3 +202,76 @@ def truncate_binary_search(
         SparsePauliOp(observable.paulis[to_keep], observable.coeffs[to_keep]),
         lower_error,
     )
+
+def truncate_weight(
+        observable: SparsePauliOp,
+        p_norm: int = 1,
+        truncation_weight: int = 7
+) -> tuple[SparsePauliOp, float]:
+
+    to_keep = []
+    slice_coefs = []
+
+    for idx, pauli in enumerate(observable):
+        weight = len([p for p in pauli.paulis[0].to_label() if p != 'I'])
+        if weight < truncation_weight:
+            to_keep.append(idx)
+        else:
+            slice_coefs.append(abs(pauli.coeffs))
+
+    slice_error = np.power(np.sum(np.power(slice_coefs, p_norm)), 1.0 / p_norm)
+
+    return (
+        observable[to_keep] if to_keep else SparsePauliOp([]),
+        slice_error
+    )
+
+def mc_sampling(
+        observable: SparsePauliOp,
+        p_norm: int = 1,
+) -> tuple[SparsePauliOp, float]:
+
+    to_keep = []
+    slice_coefs = []
+
+    for idx, pauli in enumerate(observable):
+        weight = len([p for p in pauli.paulis[0].to_label() if p != 'I'])
+        if weight < truncation_weight:
+            to_keep.append(idx)
+        else:
+            slice_coefs.append(abs(pauli.coeffs))
+
+    slice_error = np.power(np.sum(np.power(slice_coefs, p_norm)), 1.0 / p_norm)
+
+    return (
+        observable[to_keep] if to_keep else SparsePauliOp([]),
+        slice_error
+    )
+
+def truncate_mixed(
+        observable: SparsePauliOp,
+        budget: float,
+        p_norm: int = 1,
+        truncation_weight: int = 7,
+        tol: float = 1e-8,
+) -> tuple[SparsePauliOp, float]:
+    """
+    We first truncate by small coefficients up to some predetermined slice error. We then take the resulting
+    observable and further truncate any high weight Paulis.
+
+    When combining these strategies you have two options, we can either:
+        (1) Truncate by Pauli-weight, and then, assuming there is some leftover, truncate the small
+            coefficient observables until our max error, or;
+        (2) We can truncate by small coefficient observables up to the max error, and then
+            truncate by Pauli-weight.
+
+    However, it is known that many high-weight Pauli observables will inherently have small coefficient
+    terms. Therefore, it makes more sense to first truncate by small coefficients up to a slice error
+    where many of the terms have large Pauli-weights, and then remove any remaining large Pauli-weight terms
+    after. Note that high-weight Pauli terms that are leftover after truncating by low coefficient weight
+    do not contribute to the error allocation.
+    """
+
+    observable, slice_error = truncate_binary_search(observable, budget - slice_error, p_norm=p_norm, tol=tol)
+
+    return truncate_weight(observable, p_norm, truncation_weight)

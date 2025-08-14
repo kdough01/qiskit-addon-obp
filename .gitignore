@@ -1,3 +1,16 @@
+# data files
+qiskit_addon_obp/data_adaptive
+qiskit_addon_obp/state_vector_data
+
+#miscellaneous
+qiskit_addon_obp/run.pbs
+qiskit_addon_obp/requirements.txt
+qiskit_addon_obp/obp_tests.txt
+qiskit_addon_obp/obp_obs.txt
+qiskit_addon_obp/measurements.txt
+qiskit_addon_obp/meas_again.txt
+requirements.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

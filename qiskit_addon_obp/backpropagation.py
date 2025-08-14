@@ -34,7 +34,7 @@ from .utils.operations import (
 )
 from .utils.simplify import OperatorBudget
 from .utils.simplify import simplify as simplify_sparse_pauli_op
-from .utils.truncating import TruncationErrorBudget, truncate_binary_search
+from .utils.truncating import TruncationErrorBudget, truncate_binary_search, truncate_weight, truncate_mixed
 
 LOGGER = logging.getLogger(__name__)
 
@@ -52,6 +52,10 @@ def backpropagate(
     truncation_error_budget: TruncationErrorBudget | None = None,
     operator_budget: OperatorBudget | None = None,
     max_seconds: int | None = None,
+    target_depth: int | None = None,
+    coeff_truncate: bool = False,
+    pauli_truncate: bool = False,
+    truncation_weight: int | None = None
 ) -> tuple[list[SparsePauliOp], Sequence[QuantumCircuit], OBPMetadata]:
     """Backpropagate slices of quantum circuit operations onto the provided observables.
 
@@ -247,6 +251,9 @@ def backpropagate(
                         observables_tmp[i],
                         metadata,
                         i,
+                        coeff_truncate,
+                        pauli_truncate,
+                        truncation_weight
                     )
                     slice_metadata.num_truncated_paulis[i] = previous_size - len(observables_tmp[i])
 
@@ -263,16 +270,21 @@ def backpropagate(
             # zero. Plus, since we do not care about the coefficients here, we can avoid doing the math
             # and simply gather the set of all unique Pauli terms.
             num_qubits = slices[0].num_qubits
-            if operator_budget.is_active():  # noqa: SIM102
-                if _observable_oversized(
-                    observables_tmp,
-                    qargs_tmp,
-                    num_qubits,
-                    operator_budget,
-                    metadata.num_backpropagated_slices,
-                    slice_metadata,
-                ):
-                    break
+            # if operator_budget.is_active():  # noqa: SIM102
+            #     if _observable_oversized(
+            #         observables_tmp,
+            #         qargs_tmp,
+            #         num_qubits,
+            #         operator_budget,
+            #         metadata.num_backpropagated_slices,
+            #         slice_metadata,
+            #     ):
+            #         break
+
+            remaining_depth = sum(slice_.depth() for slice_ in slices[:-metadata.num_backpropagated_slices-1])
+            if remaining_depth < target_depth:  # target_depth needs to be passed as parameter
+                LOGGER.info(f"Reached target depth {target_depth}, stopping backpropagation")
+                break
 
             # If we have reached this point, we have successfully backpropagated a slice within our
             # thresholds and reflect this by updating our output variables
@@ -341,14 +353,14 @@ def _validate_input_options(
             "circuit slices."
         )
     max_paulis = operator_budget.max_paulis
-    max_qwc_groups = operator_budget.max_qwc_groups
+    # max_qwc_groups = operator_budget.max_qwc_groups
     if max_paulis is not None and max_paulis < 1:
         raise ValueError("Limiting the number of Pauli terms to less than 1 does not make sense.")
-    if max_qwc_groups is not None and max_qwc_groups < 1:
-        raise ValueError(
-            "Limiting the number of qubit-wise commmuting Pauli groups to less than 1 does not "
-            "make sense."
-        )
+    # if max_qwc_groups is not None and max_qwc_groups < 1:
+    #     raise ValueError(
+    #         "Limiting the number of qubit-wise commmuting Pauli groups to less than 1 does not "
+    #         "make sense."
+    #     )
     if operator_budget.is_active():
         # combine all observables as global ones into one large one
         all_paulis = SparsePauliOp.from_list([], num_qubits=num_qubits)
@@ -356,29 +368,32 @@ def _validate_input_options(
             all_paulis += SparsePauliOp.from_list([(pauli, 1) for pauli, _ in obs.label_iter()])
         all_paulis = all_paulis.simplify()
 
-        if max_paulis is not None:
-            num_paulis = len(all_paulis)
-            if num_paulis > max_paulis:
-                raise ValueError(
-                    f"You specified a maximum number of Pauli terms of {max_paulis}, but the "
-                    f"provided observables already exceed this threshold with a total of "
-                    f"{num_paulis} terms."
-                )
+        # if max_paulis is not None:
+        #     num_paulis = len(all_paulis)
+        #     if num_paulis > max_paulis:
+        #         raise ValueError(
+        #             f"You specified a maximum number of Pauli terms of {max_paulis}, but the "
+        #             f"provided observables already exceed this threshold with a total of "
+        #             f"{num_paulis} terms."
+        #         )
 
-        if max_qwc_groups is not None:
-            num_qwc_groups = len(all_paulis.group_commuting(qubit_wise=True))
-            if num_qwc_groups > max_qwc_groups:
-                raise ValueError(
-                    f"You specified a maximum number of qubit-wise commuting Pauli groups of "
-                    f"{max_qwc_groups}, but the provided observables already exceed this threshold "
-                    f"with a total of {num_qwc_groups} terms."
-                )
+        # if max_qwc_groups is not None:
+        #     num_qwc_groups = len(all_paulis.group_commuting(qubit_wise=True))
+        #     if num_qwc_groups > max_qwc_groups:
+        #         raise ValueError(
+        #             f"You specified a maximum number of qubit-wise commuting Pauli groups of "
+        #             f"{max_qwc_groups}, but the provided observables already exceed this threshold "
+        #             f"with a total of {num_qwc_groups} terms."
+        #         )
 
 
 def _truncate_terms(
     observable: SparsePauliOp,
     metadata: OBPMetadata,
     observable_idx: int,
+    coeff_truncate: bool,
+    pauli_truncate: bool,
+    truncation_weight: int = 7,
 ) -> SparsePauliOp:
     """Truncate terms from the observable and update the budgets."""
     slice_idx = metadata.num_backpropagated_slices
@@ -387,13 +402,29 @@ def _truncate_terms(
     accumulated_error = metadata.accumulated_error(observable_idx, slice_idx)
     left_over_error_budget = metadata.left_over_error_budget(observable_idx, slice_idx)
 
-    # Truncate low-weight observable terms
-    observable_out, slice_error = truncate_binary_search(
-        observable,
-        left_over_error_budget,
-        p_norm=p_norm,
-        tol=metadata.truncation_error_budget.tol,
-    )
+    if coeff_truncate and pauli_truncate:
+        observable_out, slice_error = truncate_mixed(
+            observable,
+            left_over_error_budget,
+            p_norm=p_norm,
+            tol=metadata.truncation_error_budget.tol,
+        )
+
+    # Truncate high Pauli weight terms
+    elif pauli_truncate:
+        observable_out, slice_error = truncate_weight(
+            observable,
+            truncation_weight = truncation_weight
+        )
+    
+    # Default to truncating low coefficient weight observable terms
+    else:
+        observable_out, slice_error = truncate_binary_search(
+            observable,
+            left_over_error_budget,
+            p_norm=p_norm,
+            tol=metadata.truncation_error_budget.tol,
+        )
 
     accumulated_error = metadata.accumulated_error(observable_idx, slice_idx + 1)
     LOGGER.info(
@@ -418,26 +449,26 @@ def _observable_oversized(
     # combine all observables as global ones into one large one
     all_paulis = SparsePauliOp.from_list([], num_qubits=num_qubits)
     max_paulis = operator_budget.max_paulis
-    max_qwc_groups = operator_budget.max_qwc_groups
+    # max_qwc_groups = operator_budget.max_qwc_groups
     for obs, qargs_ in zip(observables, qargs):
         global_obs = to_global_op(obs, qargs_, num_qubits)
         all_paulis += SparsePauliOp.from_list([(pauli, 1) for pauli, _ in global_obs.label_iter()])
     all_paulis = all_paulis.simplify()
 
-    if max_paulis is not None:
-        slice_metadata.sum_paulis = len(all_paulis)
-        if slice_metadata.sum_paulis > max_paulis:
-            LOGGER.info(f"[{slice_id:3}] Too many Pauli terms: {slice_metadata.sum_paulis}")
-            return True
+    # if max_paulis is not None:
+    #     slice_metadata.sum_paulis = len(all_paulis)
+    #     if slice_metadata.sum_paulis > max_paulis:
+    #         LOGGER.info(f"[{slice_id:3}] Too many Pauli terms: {slice_metadata.sum_paulis}")
+    #         return True
 
-    if max_qwc_groups is not None:
-        slice_metadata.num_qwc_groups = len(all_paulis.group_commuting(qubit_wise=True))
-        if slice_metadata.num_qwc_groups > max_qwc_groups:
-            LOGGER.info(
-                f"[{slice_id:3}] Too many qubit-wise commuting Pauli groups: "
-                f"{slice_metadata.num_qwc_groups}"
-            )
-            return True
+    # if max_qwc_groups is not None:
+    #     slice_metadata.num_qwc_groups = len(all_paulis.group_commuting(qubit_wise=True))
+    #     if slice_metadata.num_qwc_groups > max_qwc_groups:
+    #         LOGGER.info(
+    #             f"[{slice_id:3}] Too many qubit-wise commuting Pauli groups: "
+    #             f"{slice_metadata.num_qwc_groups}"
+    #         )
+    #         return True
 
     return False
 
