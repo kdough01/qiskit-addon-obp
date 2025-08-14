@@ -2,15 +2,19 @@
 
 ## New Features in This Fork
 
-# Depth-Based Truncation
+### Depth-Based Truncation
 We now allow a user to specify a target depth that does not depend on qubit-wise commuting (QWC) groups. This may result in larger observables being generated, but multiple original observables can now run on the same backpropagated circuit. This is useful for integration with classical shadows.
 
-# Additional Truncation Strategies
+----------------------------------------------------------------------------------------------------
+
+### Additional Truncation Strategies
 Pauli weight truncation - we added the ability to truncate based on Pauli weight
 
 Hybrid truncation - we allow users to truncate with both strategies (coefficient and Pauli-weight). We choose to first truncate by small coefficients up to some predetermined slice error. We then take the resulting observable and further truncate any high weight Paulis. However, it is known that many high-weight Pauli observables will inherently have small coefficient terms. Therefore, it makes more sense to first truncate by small coefficients up to a slice error where many of the terms have large Pauli-weights, and then remove any remaining large Pauli-weight terms after. Note that high-weight Pauli terms that are leftover after truncating by low coefficient weight do not contribute to the error allocation.
 
-# Classical Shadows Integration
+----------------------------------------------------------------------------------------------------
+
+### Classical Shadows Integration
 Copying the functions from https://github.com/hsinyuan-huang/predicting-quantum-properties?tab=readme-ov-file, we integrate backpropagation with their classical shadows protocol. Ignoring the size of the backpropagated observable, and backpropagating to a specific depth was important here if we wanted to be able to backpropagate multiple observables and have each backpropagated observable used in the formation of the shadow.
 
 `run.py` will run both the backpropagation and classical shadows and save the data to a pickle file. It will calculate and return the expected value of the original observable, as well as the error incurred. There are a few functions that will run the entire protocol that were used for testing and exploration, but the function to generate the data in the analysis notebooks is simply called `normal`. Multiple observables may be specified, along with many other flags, though most tests will want to be run with the given presets.
@@ -19,10 +23,14 @@ Copying the functions from https://github.com/hsinyuan-huang/predicting-quantum-
 
 `obp.py` will run operator backpropagation generally following the steps provided on Qiskit's tutorial page.
 
-# Pauli Propagation Integration
+----------------------------------------------------------------------------------------------------
+
+### Pauli Propagation Integration
 There is a well-structured pauli propagation repository written in Julia (https://github.com/MSRudolph/PauliPropagation.jl?tab=readme-ov-file), so in order to directly compare the operator backpropagation with the pauli propagation, we have provided a basic way to specify a circuit in Qiskit that can be translated to Julia. This allows a user to define a Qiskit circuit, convert it, run pauli propagation in Julia based on their Python integration, and have the results output in a similar manner to the `run.py`.
 
 Note that not all circuits will be able to be translated, and in order to specify the depth of the circuit for pauli propagation you first need to find the length of the backpropagated circuit in Qiskit, and then use the length of the circuit as the `target_depth` parameter. As mentioned in their papers, and their repository, then pauli propagation code will generate significantly more observables than the operator backpropagation method, thus running out of space on your disk is of concern when performing pauli propagation.
+
+----------------------------------------------------------------------------------------------------
 
 # Original OBP README
 <!-- SHIELDS -->

@@ -1,6 +1,7 @@
 # data files
 qiskit_addon_obp/data_adaptive
 qiskit_addon_obp/state_vector_data
+qiskit_addon_obp/obs_shad_dict.json
 
 #miscellaneous
 qiskit_addon_obp/run.pbs
