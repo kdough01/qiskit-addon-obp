@@ -346,9 +346,9 @@ def save_to_pickle(df, filename):
 def main():
 
     data_path = os.path.abspath(os.path.join(os.getcwd(), 'data4'))
-    filename = f'{data_path}/obp_bp5_obs18.pkl'
+    filename = f'{data_path}/obp_bp10_obs18.pkl'
 
-    start_shots = 30000
+    start_shots = 1
     max_shots = 30000
 
     data_list = []
@@ -376,7 +376,7 @@ def main():
                                     #  "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
                                      ],
                             budget=10,
-                            target_depth=5,
+                            target_depth=10,
                             max_error_per_slice=0.0001,
                             depth=10,
                             obp_shots=shots

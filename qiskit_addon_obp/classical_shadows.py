@@ -276,7 +276,9 @@ def generate_shadow_measurements(measurement_scheme, budget, quantum_state_circu
         if not non_identity_ops:
             identity_only_rounds += 1
 
+        # print('depth before adding gates: ', quantum_state_circuit.depth())
         measurement_circuit = convert_pauli(quantum_state_circuit, measurement_round)
+        # print('depth after adding gates: ', measurement_circuit.depth())
 
         job = simulator.run(measurement_circuit, shots=shots_per_measurement)
         result = job.result()
@@ -464,24 +466,24 @@ def main():
                             "XXIIIIIIII", "XZIIIIIIII", "XYIIIIIIII",
                             "YYIIIIIIII", "YZIIIIIIII", "YXIIIIIIII",
 
-                            "IZZIIIIIII", "IZXIIIIIII", "IZYIIIIIII",
-                            "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
-                            "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
+                            # "IZZIIIIIII", "IZXIIIIIII", "IZYIIIIIII",
+                            # "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
+                            # "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
 
-                            "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
-                            "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
-                            "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
+                            # "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
+                            # "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
+                            # "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
 
-                            "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
-                            "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
-                            "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
+                            # "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
+                            # "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
+                            # "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
                             ]
 
-    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data5'))
-    filename = f'{data_path}/shad_res_36.pkl'
+    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data3'))
+    filename = f'{data_path}/shad_res_9.pkl'
 
-    start_meas = 1000
-    max_meas = 1000
+    start_meas = 100000
+    max_meas = 100000
 
     data_list = []
     all_data_dict_lists = []

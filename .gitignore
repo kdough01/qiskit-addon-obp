@@ -10,6 +10,7 @@ qiskit_addon_obp/obp_tests.txt
 qiskit_addon_obp/obp_obs.txt
 qiskit_addon_obp/measurements.txt
 qiskit_addon_obp/meas_again.txt
+qiskit_addon_obp/circuit_cutting.py
 requirements.txt
 
 # Byte-compiled / optimized / DLL files
