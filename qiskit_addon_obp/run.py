@@ -693,9 +693,8 @@ def normal_state_vector():
     print(f"Total Time: {end - start} seconds")
 
 def normal():
-    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data4'))
-    filename = f'{data_path}/coef-trunc_init90_bp10_obs18.pkl'
-    #coef-trunc_init90_bp10_obs18
+    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data5'))
+    filename = f'{data_path}/coef-trunc_init90_bp10_obs36.pkl'
 
     data_list = []
     start = time.time()
@@ -707,18 +706,18 @@ def normal():
                                      "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
                                      "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
 
-                                    #  "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
-                                    #  "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
-                                    #  "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
+                                     "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
+                                     "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
+                                     "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
 
-                                    #  "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
-                                    #  "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
-                                    #  "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
+                                     "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
+                                     "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
+                                     "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
                                      ],
                         budget=10,
                         target_depth=10,
                         max_error_per_slice=0.0001,
-                        measurements_per_observable=400,
+                        measurements_per_observable=10,
                         shots_per_measurement=1,
                         depth=10,
                         which_circuit=False,

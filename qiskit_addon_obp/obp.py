@@ -345,11 +345,11 @@ def save_to_pickle(df, filename):
 
 def main():
 
-    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data4'))
-    filename = f'{data_path}/obp_bp10_obs18.pkl'
+    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data5'))
+    filename = f'{data_path}/obp_bp10_obs36.pkl'
 
     start_shots = 1
-    max_shots = 30000
+    max_shots = 10000
 
     data_list = []
     all_data_dict_lists = []
@@ -367,13 +367,13 @@ def main():
                                      "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
                                      "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
 
-                                    #  "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
-                                    #  "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
-                                    #  "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
+                                     "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
+                                     "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
+                                     "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
 
-                                    #  "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
-                                    #  "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
-                                    #  "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
+                                     "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
+                                     "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
+                                     "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
                                      ],
                             budget=10,
                             target_depth=10,

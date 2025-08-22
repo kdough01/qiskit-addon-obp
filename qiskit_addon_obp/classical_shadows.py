@@ -258,6 +258,7 @@ def generate_shadow_measurements(measurement_scheme, budget, quantum_state_circu
     """
     system_size = len(measurement_scheme[0])
     if noisy:
+        print(f'    Using noisy simulator')
         backend = FakeLimaV2()
         noise_model = NoiseModel.from_backend(backend)
         simulator = AerSimulator(noise_model=noise_model)
@@ -466,24 +467,24 @@ def main():
                             "XXIIIIIIII", "XZIIIIIIII", "XYIIIIIIII",
                             "YYIIIIIIII", "YZIIIIIIII", "YXIIIIIIII",
 
-                            # "IZZIIIIIII", "IZXIIIIIII", "IZYIIIIIII",
-                            # "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
-                            # "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
+                            "IZZIIIIIII", "IZXIIIIIII", "IZYIIIIIII",
+                            "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
+                            "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
 
-                            # "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
-                            # "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
-                            # "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
+                            "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
+                            "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
+                            "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
 
-                            # "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
-                            # "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
-                            # "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
+                            "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
+                            "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
+                            "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
                             ]
 
-    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data3'))
-    filename = f'{data_path}/shad_res_9.pkl'
+    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data5'))
+    filename = f'{data_path}/shad_res_36.pkl'
 
-    start_meas = 100000
-    max_meas = 100000
+    start_meas = 25000
+    max_meas = 25000
 
     data_list = []
     all_data_dict_lists = []
