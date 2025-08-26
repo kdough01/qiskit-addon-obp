@@ -231,33 +231,6 @@ def obs_shad_exact(circuit, obs_shad_dict):
 
     return output
 
-# def perform_circuit_cutting(circuit, target_depth):
-#     """
-#     Cuts the circuit at a specified target depth and returns two subcircuits.
-
-#     Args:
-#         circuit (QuantumCircuit): the circuit to be cut
-#         target_depth (int): the depth at which to cut the circuit
-#     Returns:
-#         tuple: two subcircuits resulting from the cut
-#     """
-
-#     dag = circuit_to_dag(circuit)
-#     layers_by_depth = list(dag.layers())
-
-#     target_layer = layers_by_depth[target_depth]["graph"].op_nodes()
-
-#     cut_circuit = circuit.copy()
-
-#     for qubit in circuit.qubits:
-#         for node in target_layer:
-#             if qubit in node.qargs:
-#                 cut_wire(cut_circuit, qubit)
-#                 break
-
-#     subcircuits = partition_circuit(cut_circuit)
-#     return subcircuits[0], subcircuits[1]
-
 def convert_obs_to_form(observables):
     result_lines = []
     for pauli_str in observables:
@@ -693,8 +666,9 @@ def normal_state_vector():
     print(f"Total Time: {end - start} seconds")
 
 def normal():
-    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data5'))
+    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data_noisy'))
     filename = f'{data_path}/coef-trunc_init90_bp10_obs36.pkl'
+    #coef-trunc_init90_bp10_obs36
 
     data_list = []
     start = time.time()
@@ -717,11 +691,11 @@ def normal():
                         budget=10,
                         target_depth=10,
                         max_error_per_slice=0.0001,
-                        measurements_per_observable=10,
+                        measurements_per_observable=100,
                         shots_per_measurement=1,
-                        depth=10,
+                        depth=10, # this is really the number of trotter steps, so the depth is 9*depth
                         which_circuit=False,
-                        noisy=False,
+                        noisy=True,
                         obp_shots=10000,
                         coeff_truncate=True,
                         pauli_truncate=False,
