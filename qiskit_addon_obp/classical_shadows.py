@@ -178,6 +178,19 @@ def derandomized_classical_shadow(all_observables, num_of_measurements_per_obser
     return measurement_procedure
 
 def estimate_exp(full_measurement, one_observable):
+    """
+    Estimate the expectation value of one observable from the full measurement data
+
+    Inputs:
+    - full_measurement: list of list of tuple - the full measurement data, each inner list is a single measurement
+                        each tuple in the inner list is of the form ("X", outcome) or ("Y", outcome) or ("Z", outcome)
+    - one_observable: list of tuple - the observable to be estimated, of the form ("X", position) or ("Y", position) or ("Z", position)
+
+    Outputs:
+    - sum_product: int - the sum of the products of the measurement outcomes that match the observable
+    - cnt_match: int - the number of measurements that match the observable
+    - products: list of int - the list of products of the measurement outcomes that match the observable
+    """
 
     sum_product, cnt_match = 0, 0
     products = []
@@ -277,9 +290,9 @@ def generate_shadow_measurements(measurement_scheme, budget, quantum_state_circu
         if not non_identity_ops:
             identity_only_rounds += 1
 
-        # print('depth before adding gates: ', quantum_state_circuit.depth())
+        # print('depth before adding gates: ', quantum_state_circuit.count_ops())
         measurement_circuit = convert_pauli(quantum_state_circuit, measurement_round)
-        # print('depth after adding gates: ', measurement_circuit.depth())
+        # print('depth after adding gates: ', measurement_circuit.count_ops())
 
         job = simulator.run(measurement_circuit, shots=shots_per_measurement)
         result = job.result()
@@ -318,7 +331,15 @@ def generate_shadow_measurements(measurement_scheme, budget, quantum_state_circu
 
 def convert_pauli(state_circuit, pauli_string):
     """
-    
+    Perform single-qubit Pauli rotations on X and Y Pauli strings and add measurements.
+    Assumes Z measurements are done in the computational basis.
+
+    Inputs:
+    - state_circuit: QuantumCircuit - circuit that prepares the quantum state to be measured
+    - pauli_string: list of str - list of 'I', 'X', 'Y', 'Z' specifying the Pauli measurement on each qubit
+
+    Outputs:
+    - circuit: QuantumCircuit - modified circuit with basis change and measurements added
     """
     circuit = state_circuit.copy()
     
@@ -348,6 +369,9 @@ def save_measurements_to_file(measurements, filename='measurements.txt'):
     # print(f"Measurements saved to '{filename}'")
 
 def run_shadow(sample_observables, measurements_per_observable=10, shots_per_measurement=10, depth=5):
+    """
+    Run derandomized shadow tomography on a quantum system and estimate expectation values of given observables
+    """
     observables = [SparsePauliOp(obs) for obs in sample_observables]
     with open("obp_obs.txt", "a") as f:
         f.write(convert_observables(observables))
@@ -447,9 +471,13 @@ def calculate_shadow_sample_complexity(df, num_terms, df_column, epsilon, confid
     return N
 
 def get_depth(circuit):
+    """Get the depth of a quantum circuit."""
     return circuit.depth()
 
 def save_to_pickle(df, filename):
+    """
+    Save DataFrame to pickle file, appending if file already exists.
+    """
     if os.path.exists(filename):
         df_old = pd.read_pickle(f'{filename}')
         df_combined = pd.concat([df_old, df], ignore_index=True)
@@ -464,27 +492,27 @@ def main():
     """
     observables=observables=[
                             "ZZIIIIIIII", "ZXIIIIIIII", "ZYIIIIIIII",
-                            "XXIIIIIIII", "XZIIIIIIII", "XYIIIIIIII",
-                            "YYIIIIIIII", "YZIIIIIIII", "YXIIIIIIII",
+                            # "XXIIIIIIII", "XZIIIIIIII", "XYIIIIIIII",
+                            # "YYIIIIIIII", "YZIIIIIIII", "YXIIIIIIII",
 
-                            "IZZIIIIIII", "IZXIIIIIII", "IZYIIIIIII",
-                            "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
-                            "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
+                            # "IZZIIIIIII", "IZXIIIIIII", "IZYIIIIIII",
+                            # "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
+                            # "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
 
-                            "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
-                            "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
-                            "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
+                            # "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
+                            # "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
+                            # "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
 
-                            "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
-                            "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
-                            "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
+                            # "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
+                            # "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
+                            # "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
                             ]
 
-    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data5'))
-    filename = f'{data_path}/shad_res_36.pkl'
+    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data2'))
+    filename = f'{data_path}/shad_res_3.pkl'
 
-    start_meas = 25000
-    max_meas = 25000
+    start_meas = 500_000
+    max_meas = 500_000
 
     data_list = []
     all_data_dict_lists = []

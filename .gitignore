@@ -14,7 +14,7 @@ qiskit_addon_obp/circuit_cutting.py
 qiskit_addon_obp/analysis/circuit_cutting_testing.ipynb
 qiskit_addon_obp/data_circuit_cutting
 qiskit_addon_obp/data5/test.pkl
-qiskit_addon_obp/analysis/initial.ipynb
+qiskit_addon_obp/analysis/initial_1.ipynb
 qiskit_addon_obp/analysis/initial_2.ipynb
 
 requirements.txt

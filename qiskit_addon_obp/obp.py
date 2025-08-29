@@ -29,6 +29,20 @@ import pandas as pd
 def process_backpropagated_circuit(obs, circuit, target_depth, max_qwc_groups, max_error_per_slice, coeff_truncate, pauli_truncate, truncation_weight):
     """
     Process the backpropagated circuit and convert it to proper format for shadow estimation
+
+    Inputs:
+    - obs: str - observable in string format, e.g. "ZZIIIIIIII"
+    - circuit: QuantumCircuit - original quantum circuit to be backpropagated
+    - target_depth: int - desired maximum depth of the backpropagated circuit
+    - max_qwc_groups: int - maximum number of qubit-wise commuting groups allowed in the backpropagated observable
+    - max_error_per_slice: float - maximum allowable error per slice during backpropagation
+    - coeff_truncate: bool - whether to enable coefficient truncation
+    - pauli_truncate: bool - whether to enable Pauli string truncation
+    - truncation_weight: float - Pauli-weight used for the pauli truncation scheme
+
+    Outputs:
+    - data_dict: dict - dictionary containing information about the backpropagated circuit and observable
+    - circuit: QuantumCircuit - original quantum circuit
     """
     errors = []
     times = []
@@ -74,6 +88,18 @@ def estimate_circuit(circuit, observable, bp_circuit_trunc, bp_obs_trunc, obp_sh
     This simulates two quantum circuits using Qiskit AerSimulator: one initial circuit, and one 
     backpropagated circuit. It takes in an observable and estimates the expectation value of
     the observable using a number of shots specified by the obp_shots parameter.
+
+    Inputs:
+    - circuit: QuantumCircuit - the original quantum circuit
+    - observable: SparsePauliOp - the observable to estimate
+    - bp_circuit_trunc: QuantumCircuit - the backpropagated circuit
+    - bp_obs_trunc: SparsePauliOp - the backpropagated observable
+    - obp_shots: int - number of shots to use for the estimation
+
+    Outputs:
+    - result_bp_trunc: float - estimated expectation value from the backpropagated circuit
+    - result_exact: float - exact expectation value from the original circuit
+    - result_bp_trunc_state: float - exact expectation value from the backpropagated circuit
     """
     errors = []
 
@@ -101,6 +127,18 @@ def estimate_circuit(circuit, observable, bp_circuit_trunc, bp_obs_trunc, obp_sh
     return result_bp_trunc, result_exact, result_bp_trunc_state
 
 def export_for_old_qiskit(circuits, observables, slices, filename):
+    """
+    Export circuits to a JSON file for use with older versions of Qiskit
+
+    Inputs:
+    - circuits: list of QuantumCircuit - list of circuits to export
+    - observables: list of str - list of observable strings
+    - slices: list of lists of QuantumCircuit - list of circuit slices for each circuit
+    - filename: str - output JSON filename
+    
+    Outputs:
+    - None (writes to file)
+    """
     circuit_data = []
     for i, circuit in enumerate(circuits):
         qasm_str = dumps(circuit)
@@ -141,6 +179,15 @@ def save_circuits_to_text(all_circuits_list, observables, filename="circuits.txt
     print(f"All circuits saved to {filename}")
 
 def convert_observables(sparse_pauli_ops):
+    """
+    Convert a list of SparsePauliOp observables into a specific string format.
+    
+    Inputs:
+    - sparse_pauli_ops: list of SparsePauliOp - list of observables to convert
+    
+    Outputs:
+    - result_str: str - formatted string representation of the observables
+    """
     if not sparse_pauli_ops:
         return ""
     
@@ -169,6 +216,15 @@ def convert_observables(sparse_pauli_ops):
     return '\n'.join(result_lines)
 
 def convert_observables_for_many(sparse_pauli_ops):
+    """
+    Convert a list of SparsePauliOp observables into a specific string format without system size
+
+    Inputs:
+    - sparse_pauli_ops: list of SparsePauliOp - list of observables to convert
+
+    Outputs:
+    - result_str: str - formatted string representation of the observables
+    """
     if not sparse_pauli_ops:
         return ""
     
@@ -198,7 +254,17 @@ def convert_observables_for_many(sparse_pauli_ops):
 
 def run_backpropagation(obs, target_depth,max_error=0.01, max_error_increment=0.005, operator_budget=8, operator_budget_increment=2, coeff_truncate=False, pauli_truncate=False):
     """
+    Run backpropagation for a single observable over a range of error thresholds and operator budgets.
+
     Inputs:
+    - obs: str - observable in string format, e.g. "ZZIIIIIIII"
+    - target_depth: int - desired maximum depth of the backpropagated circuit
+    - max_error: float - maximum allowable error per slice during backpropagation
+    - max_error_increment: float - increment for the error threshold in each iteration
+    - operator_budget: int - maximum number of qubit-wise commuting groups allowed in the backpropagated observable
+    - operator_budget_increment: int - increment for the operator budget in each iteration
+    - coeff_truncate: bool - whether to enable coefficient truncation
+    - pauli_truncate: bool - whether to enable Pauli string truncation
 
     Outputs:
     - data_dict_list: list of dicts for one observable
@@ -245,6 +311,25 @@ def run_backpropagation(obs, target_depth,max_error=0.01, max_error_increment=0.
     return data_dict_list
 
 def obp_protocol(observable, circuit, target_depth, max_qwc_groups=4, max_error_per_slice=0.01, obp_shots=10000, coeff_truncate=False, pauli_truncate=False, truncation_weight=7):
+    """
+    Run the OBP protocol for a single observable and quantum circuit.
+
+    Inputs:
+    - observable: str - observable in string format, e.g. "ZZIIIIIIII
+    - circuit: QuantumCircuit - original quantum circuit to be backpropagated
+    - target_depth: int - desired maximum depth of the backpropagated circuit
+    - max_qwc_groups: int - maximum number of qubit-wise commuting groups allowed in the backpropagated observable
+    - max_error_per_slice: float - maximum allowable error per slice during backpropagation
+    - obp_shots: int - number of shots to use for the estimation
+    - coeff_truncate: bool - whether to enable coefficient truncation
+    - pauli_truncate: bool - whether to enable Pauli string truncation
+    - truncation_weight: float - Pauli-weight used for the pauli truncation scheme
+    
+    Outputs:
+    - all_data_dict_lists: list of dicts - list containing information about the backpropagated circuit and observable
+    - pauli_strings_list: list of lists - list of Pauli strings for each backpropagated observable
+    - pauli_coeffs_list: list of lists - list of coefficients for each backpropagated observable
+    """
     ### OBP ###
     observables = [observable]
 
@@ -297,9 +382,21 @@ def obp_protocol(observable, circuit, target_depth, max_qwc_groups=4, max_error_
 
 def run_obp(observables, target_depth, budget=4, max_error_per_slice=0.01, depth=5, obp_shots=10000):
     """
+    Run the OBP protocol for a list of observables on a generated quantum circuit.
+
     Inputs:
     - observables: list - takes in a list of observables, even if only entering one observable, must be of list form
     - which_circuit: bool - if True, the original circuit will be used, otherwise, if False, the backpropagated circuits will be used
+    - target_depth: int - desired maximum depth of the backpropagated circuit
+    - budget: int - maximum number of qubit-wise commuting groups allowed in the backpropagated observable
+    - max_error_per_slice: float - maximum allowable error per slice during backpropagation
+    - depth: int - number of Trotter steps of the original quantum circuit
+    - obp_shots: int - number of shots to use for the estimation
+
+    Outputs:
+    - all_data_dict_lists: list of dicts - list containing information about the backpropagated circuit and observable
+    - pauli_strings_list: list of lists - list of Pauli strings for each backpropagated observable
+    - pauli_coeffs_list: list of lists - list of coefficients for each backpropagated observable
     """
 
     coupling_map = CouplingMap.from_heavy_hex(3, bidirectional=False)
@@ -332,9 +429,19 @@ def run_obp(observables, target_depth, budget=4, max_error_per_slice=0.01, depth
     return all_data_dict_lists
 
 def get_depth(circuit):
+    """Get the depth of a quantum circuit."""
     return circuit.depth()
 
 def save_to_pickle(df, filename):
+    """
+    Save DataFrame to pickle file, appending if file already exists.
+    
+    Inputs:
+    - df: pandas DataFrame - DataFrame to save
+    - filename: str - output pickle filename
+    
+    Outputs:
+    - None (writes to file)"""
     if os.path.exists(filename):
         df_old = pd.read_pickle(f'{filename}')
         df_combined = pd.concat([df_old, df], ignore_index=True)
@@ -345,11 +452,12 @@ def save_to_pickle(df, filename):
 
 def main():
 
-    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data5'))
-    filename = f'{data_path}/obp_bp10_obs36.pkl'
+    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data4'))
+    filename = f'{data_path}/obp_bp10_obs18.pkl'
 
-    start_shots = 1
-    max_shots = 10000
+    #1_800_000    10**6
+    start_shots = 3_000_000
+    max_shots = 3_000_000
 
     data_list = []
     all_data_dict_lists = []
@@ -367,13 +475,13 @@ def main():
                                      "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
                                      "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
 
-                                     "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
-                                     "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
-                                     "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
+                                    #  "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
+                                    #  "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
+                                    #  "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
 
-                                     "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
-                                     "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
-                                     "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
+                                    #  "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
+                                    #  "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
+                                    #  "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
                                      ],
                             budget=10,
                             target_depth=10,

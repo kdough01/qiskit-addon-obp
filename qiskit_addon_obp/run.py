@@ -490,10 +490,10 @@ def run_many(
     #     for data_idx in range(len(all_data_dict_lists)):
     #         og_shadow_estimates(all_data_dict_lists[data_idx], all_pauli_strings_list[obs_idx], all_pauli_coeffs_list[obs_idx], obs_shad_dict)
 
-    with open("obp_tests.txt", "a") as f:
-        for obs_idx, data in enumerate(all_data_dict_lists):
-            f.write(f"\n=== Observable {all_data_dict_lists[obs_idx]['obs']} ===\n")
-            print(data, file=f)
+    # with open("obp_tests.txt", "a") as f:
+    #     for obs_idx, data in enumerate(all_data_dict_lists):
+    #         f.write(f"\n=== Observable {all_data_dict_lists[obs_idx]['obs']} ===\n")
+    #         print(data, file=f)
 
     return all_data_dict_lists
 
@@ -580,10 +580,10 @@ def run_many_state_vector(
     #     for data_idx in range(len(all_data_dict_lists)):
     #         og_shadow_estimates(all_data_dict_lists[data_idx], all_pauli_strings_list[obs_idx], all_pauli_coeffs_list[obs_idx], obs_shad_dict)
 
-    with open("obp_tests.txt", "a") as f:
-        for obs_idx, data in enumerate(all_data_dict_lists):
-            f.write(f"\n=== Observable {all_data_dict_lists[obs_idx]['obs']} ===\n")
-            print(data, file=f)
+    # with open("obp_tests.txt", "a") as f:
+    #     for obs_idx, data in enumerate(all_data_dict_lists):
+    #         f.write(f"\n=== Observable {all_data_dict_lists[obs_idx]['obs']} ===\n")
+    #         print(data, file=f)
 
     return all_data_dict_lists
 
