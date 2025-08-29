@@ -32,6 +32,17 @@ Note that not all circuits will be able to be translated, and in order to specif
 
 ----------------------------------------------------------------------------------------------------
 
+### Sources
+This repository is an adaptation of the original Operator Backpropagation Qiskit Addon, and the original README is displayed below. A link to that repository can be found here:
+- https://github.com/Qiskit/qiskit-addon-obp
+
+This repository also copies functions from the Predicting Properties of Quantum Many-Body Systems repository, linked here:
+- https://github.com/hsinyuan-huang/predicting-quantum-properties?tab=readme-ov-file
+The code from this repository exists in the `classical_shadows.py` file and the functions are specified in their docstrings.
+
+The additional truncation method was inspired by the papers associated with the Pauli Propagation repository, which was linked above, but can be found here:
+- https://github.com/MSRudolph/PauliPropagation.jl?tab=readme-ov-file
+
 # Original OBP README
 <!-- SHIELDS -->
 <div align="left">

@@ -26,6 +26,9 @@ from qiskit.primitives import StatevectorEstimator
 from collections import defaultdict
 
 def generate_observables(file, system_size = 10):
+    """
+    Function from predicting-quantum-properties repository
+    """
     observable_file = open(file, 'w')
 
     print(system_size, file = observable_file)
@@ -48,6 +51,9 @@ def generate_observables(file, system_size = 10):
             print("3 X {} X {} Z {}".format(i, i+1, j), file = observable_file)
 
 def randomized_classical_shadow(num_total_measurements, system_size):
+    """
+    Function from predicting-quantum-properties repository
+    """
     #
     # Implementation of the randomized classical shadow
     #
@@ -61,6 +67,9 @@ def randomized_classical_shadow(num_total_measurements, system_size):
     return measurement_procedure
 
 def derandomized_classical_shadow(all_observables, num_of_measurements_per_observable, system_size, weight=None):
+    """
+    Function from predicting-quantum-properties repository
+    """
     #
     # Implementation of the derandomized classical shadow
     #
@@ -179,6 +188,7 @@ def derandomized_classical_shadow(all_observables, num_of_measurements_per_obser
 
 def estimate_exp(full_measurement, one_observable):
     """
+    Function adapted from predicting-quantum-properties repository.
     Estimate the expectation value of one observable from the full measurement data
 
     Inputs:
