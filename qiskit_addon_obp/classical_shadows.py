@@ -24,6 +24,7 @@ from qiskit_addon_utils.problem_generators import generate_xyz_hamiltonian, gene
 import pandas as pd
 from qiskit.primitives import StatevectorEstimator
 from collections import defaultdict
+from helpers import get_depth, save_to_pickle
 
 def generate_observables(file, system_size = 10):
     """
@@ -479,22 +480,6 @@ def calculate_shadow_sample_complexity(df, num_terms, df_column, epsilon, confid
     N = int(np.ceil(N))
 
     return N
-
-def get_depth(circuit):
-    """Get the depth of a quantum circuit."""
-    return circuit.depth()
-
-def save_to_pickle(df, filename):
-    """
-    Save DataFrame to pickle file, appending if file already exists.
-    """
-    if os.path.exists(filename):
-        df_old = pd.read_pickle(f'{filename}')
-        df_combined = pd.concat([df_old, df], ignore_index=True)
-    else:
-        df_combined = df
-
-    df_combined.to_pickle(f'{filename}')
 
 def main():
     """

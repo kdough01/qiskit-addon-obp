@@ -25,6 +25,12 @@ import random
 import math
 from qiskit.converters import circuit_to_dag
 from qiskit.transpiler.passes import Depth
+from qiskit.quantum_info import SparsePauliOp
+from qiskit.circuit.library import QAOAAnsatz
+import rustworkx as rx
+from qiskit.compiler import transpile
+from scipy.optimize import minimize
+from helpers import build_max_cut_paulis, create_n_regular_graph, get_depth, save_to_pickle
 # from qiskit_addon_cutting import cut_wires, partition_circuit_qubits, generate_cutting_experiments, reconstruct_expectation_value
 
 def measurement(circuit, budget, file='obp_obs.txt', measurements_per_observable=100, shots_per_measurement=100, noisy=False):
@@ -405,7 +411,7 @@ def run_circuit_cutting(
     # print("Expectation value:", exp_val)
 
 def run_many(
-        observables,
+        # observables,
         target_depth,
         budget=4,
         max_error_per_slice=0.01,
@@ -430,19 +436,61 @@ def run_many(
     #     "ZXZIIIIIII"
     # ]
 
-    coupling_map = CouplingMap.from_heavy_hex(3, bidirectional=False)
-    reduced_coupling_map = coupling_map.reduce([0, 13, 1, 14, 10, 16, 5, 12, 8, 18])
+    graph = create_n_regular_graph(4, 3)
+ 
+    max_cut_paulis = build_max_cut_paulis(graph)
+    cost_hamiltonian = SparsePauliOp.from_sparse_list(max_cut_paulis, 4)
+    observables = [p.to_label() for p in cost_hamiltonian.paulis]
+    # print(observables)
 
-    hamiltonian = generate_xyz_hamiltonian(
-                                            reduced_coupling_map,
-                                            coupling_constants=(np.pi / 8, np.pi / 4, np.pi / 2),
-                                            ext_magnetic_field=(np.pi / 3, np.pi / 6, np.pi / 9),
-                                        )
-    circuit = generate_time_evolution_circuit(
-                                                hamiltonian,
-                                                time=0.1,
-                                                synthesis=LieTrotter(reps=depth),
-                                            )
+    circuit = QAOAAnsatz(cost_operator=cost_hamiltonian, reps=5)
+    circuit = transpile(circuit, basis_gates=['cx', 'rz', 'rx', 'h'])
+
+    # NOTE: The QAOA tutorial shows you have to run the backend to get better parameters
+    # initial_gamma = np.pi
+    # initial_beta = np.pi / 2
+    init_params = {}
+    for param in circuit.parameters:
+        if param.name.startswith('γ'):
+            init_params[param] = 0.73
+        elif param.name.startswith('β'):
+            init_params[param] = 0.42
+    circuit = circuit.assign_parameters(init_params)
+    
+    # objective_func_vals = []  # Global variable
+    # with Session(backend=AerSimulator) as session:
+    #     # If using qiskit-ibm-runtime<0.24.0, change `mode=` to `session=`
+    #     estimator = Estimator(mode=session)
+    
+    #     estimator.options.default_shots = 1000
+    
+    #     # Set simple error suppression/mitigation options
+    #     estimator.options.dynamical_decoupling.enable = True
+    #     estimator.options.dynamical_decoupling.sequence_type = "XY4"
+    #     estimator.options.twirling.enable_gates = True
+    #     estimator.options.twirling.num_randomizations = "auto"
+    
+    #     result = minimize(
+    #         cost_func_estimator,
+    #         init_params,
+    #         args=(circuit, cost_hamiltonian, estimator),
+    #         method="COBYLA",
+    #     )
+    #     print(result)
+
+    # coupling_map = CouplingMap.from_heavy_hex(3, bidirectional=False)
+    # reduced_coupling_map = coupling_map.reduce([0, 13, 1, 14, 10, 16, 5, 12, 8, 18])
+
+    # hamiltonian = generate_xyz_hamiltonian(
+    #                                         reduced_coupling_map,
+    #                                         coupling_constants=(np.pi / 8, np.pi / 4, np.pi / 2),
+    #                                         ext_magnetic_field=(np.pi / 3, np.pi / 6, np.pi / 9),
+    #                                     )
+    # circuit = generate_time_evolution_circuit(
+    #                                             hamiltonian,
+    #                                             time=0.1,
+    #                                             synthesis=LieTrotter(reps=depth),
+    #                                         )
     print(f"Circuit Depth: {circuit.depth()}")
 
     with open("obp_obs.txt", "a") as f:
@@ -453,6 +501,7 @@ def run_many(
     all_pauli_strings_list = []
     all_pauli_coeffs_list = []
     for obs in observables:
+        print(obs)
         new_data, pauli_strings_list, pauli_coeffs_list = obp_protocol(
                                                                     obs, 
                                                                     circuit=circuit, 
@@ -587,18 +636,6 @@ def run_many_state_vector(
 
     return all_data_dict_lists
 
-def get_depth(circuit):
-    return circuit.depth()
-
-def save_to_pickle(df, filename):
-    if os.path.exists(filename):
-        df_old = pd.read_pickle(f'{filename}')
-        df_combined = pd.concat([df_old, df], ignore_index=True)
-    else:
-        df_combined = df
-
-    df_combined.to_pickle(f'{filename}')
-
 def normal_state_vector():
     data_path = os.path.abspath(os.path.join(os.getcwd(), 'state_vector_data'))
     filename = f'{data_path}/coef-trunc_init90_bp5_obs3.pkl'
@@ -666,36 +703,36 @@ def normal_state_vector():
     print(f"Total Time: {end - start} seconds")
 
 def normal():
-    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data_noisy'))
-    filename = f'{data_path}/coef-trunc_init90_bp10_obs36.pkl'
+    data_path = os.path.abspath(os.path.join(os.getcwd(), 'QAOA_data'))
+    filename = f'{data_path}/bp-shad_reps5_n4_k3_g073_b042_depth70.pkl'
     #coef-trunc_init90_bp10_obs36
 
     data_list = []
     start = time.time()
-    new_data = run_many(observables=["ZZIIIIIIII", "ZXIIIIIIII", "ZYIIIIIIII",
-                                     "XXIIIIIIII", "XZIIIIIIII", "XYIIIIIIII",
-                                     "YYIIIIIIII", "YZIIIIIIII", "YXIIIIIIII",
+    new_data = run_many(#observables=["ZZIIIIIIII", #"ZXIIIIIIII", "ZYIIIIIIII",
+                                    #  "XXIIIIIIII", "XZIIIIIIII", "XYIIIIIIII",
+                                    #  "YYIIIIIIII", "YZIIIIIIII", "YXIIIIIIII",
 
-                                     "IZZIIIIIII", "IZXIIIIIII", "IZYIIIIIII",
-                                     "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
-                                     "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
+                                    #  "IZZIIIIIII", "IZXIIIIIII", "IZYIIIIIII",
+                                    #  "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
+                                    #  "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
 
-                                     "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
-                                     "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
-                                     "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
+                                    #  "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
+                                    #  "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
+                                    #  "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
 
-                                     "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
-                                     "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
-                                     "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
-                                     ],
+                                    #  "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
+                                    #  "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
+                                    #  "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
+                                     #],
                         budget=10,
-                        target_depth=10,
+                        target_depth=70,
                         max_error_per_slice=0.0001,
-                        measurements_per_observable=100,
-                        shots_per_measurement=1,
+                        measurements_per_observable=10,
+                        shots_per_measurement=100,
                         depth=10, # this is really the number of trotter steps, so the depth is 9*depth
                         which_circuit=False,
-                        noisy=True,
+                        noisy=False,
                         obp_shots=10000,
                         coeff_truncate=True,
                         pauli_truncate=False,

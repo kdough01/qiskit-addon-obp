@@ -25,6 +25,10 @@ import random
 from qiskit import QuantumCircuit
 from qiskit_ibm_runtime import EstimatorV2 as Estimator
 import pandas as pd
+from qiskit.circuit.library import QAOAAnsatz
+import rustworkx as rx
+from helpers import create_n_regular_graph, build_max_cut_paulis
+from qiskit.compiler import transpile
 
 def process_backpropagated_circuit(obs, circuit, target_depth, max_qwc_groups, max_error_per_slice, coeff_truncate, pauli_truncate, truncation_weight):
     """
@@ -399,19 +403,41 @@ def run_obp(observables, target_depth, budget=4, max_error_per_slice=0.01, depth
     - pauli_coeffs_list: list of lists - list of coefficients for each backpropagated observable
     """
 
-    coupling_map = CouplingMap.from_heavy_hex(3, bidirectional=False)
-    reduced_coupling_map = coupling_map.reduce([0, 13, 1, 14, 10, 16, 5, 12, 8, 18])
+    # coupling_map = CouplingMap.from_heavy_hex(3, bidirectional=False)
+    # reduced_coupling_map = coupling_map.reduce([0, 13, 1, 14, 10, 16, 5, 12, 8, 18])
 
-    hamiltonian = generate_xyz_hamiltonian(
-                                            reduced_coupling_map,
-                                            coupling_constants=(np.pi / 8, np.pi / 4, np.pi / 2),
-                                            ext_magnetic_field=(np.pi / 3, np.pi / 6, np.pi / 9),
-                                        )
-    circuit = generate_time_evolution_circuit(
-                                                hamiltonian,
-                                                time=0.1,
-                                                synthesis=LieTrotter(reps=depth),
-                                            )
+    # hamiltonian = generate_xyz_hamiltonian(
+    #                                         reduced_coupling_map,
+    #                                         coupling_constants=(np.pi / 8, np.pi / 4, np.pi / 2),
+    #                                         ext_magnetic_field=(np.pi / 3, np.pi / 6, np.pi / 9),
+    #                                     )
+    # circuit = generate_time_evolution_circuit(
+    #                                             hamiltonian,
+    #                                             time=0.1,
+    #                                             synthesis=LieTrotter(reps=depth),
+    #                                         )
+
+    graph = create_n_regular_graph(4, 3)
+ 
+    max_cut_paulis = build_max_cut_paulis(graph)
+    cost_hamiltonian = SparsePauliOp.from_sparse_list(max_cut_paulis, 4)
+    observables = [p.to_label() for p in cost_hamiltonian.paulis]
+    # print(observables)
+
+    circuit = QAOAAnsatz(cost_operator=cost_hamiltonian, reps=5)
+    circuit = transpile(circuit, basis_gates=['cx', 'rz', 'rx', 'h'])
+
+    # NOTE: The QAOA tutorial shows you have to run the backend to get better parameters
+    # initial_gamma = np.pi
+    # initial_beta = np.pi / 2
+    init_params = {}
+    for param in circuit.parameters:
+        if param.name.startswith('γ'):
+            init_params[param] = 0.73
+        elif param.name.startswith('β'):
+            init_params[param] = 0.42
+    circuit = circuit.assign_parameters(init_params)
+
     print(f"Circuit Depth: {circuit.depth()}")
 
     with open("obp_obs.txt", "a") as f:
@@ -452,12 +478,12 @@ def save_to_pickle(df, filename):
 
 def main():
 
-    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data4'))
-    filename = f'{data_path}/obp_bp10_obs18.pkl'
+    data_path = os.path.abspath(os.path.join(os.getcwd(), 'QAOA_data'))
+    filename = f'{data_path}/obp_reps5_n4_k3_g073_b042_depth70.pkl'
 
     #1_800_000    10**6
-    start_shots = 3_000_000
-    max_shots = 3_000_000
+    start_shots = 1
+    max_shots = 100_000
 
     data_list = []
     all_data_dict_lists = []
@@ -475,16 +501,16 @@ def main():
                                      "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
                                      "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
 
-                                    #  "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
-                                    #  "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
-                                    #  "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
+                                     "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
+                                     "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
+                                     "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
 
-                                    #  "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
-                                    #  "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
-                                    #  "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
+                                     "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
+                                     "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
+                                     "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
                                      ],
                             budget=10,
-                            target_depth=10,
+                            target_depth=70,
                             max_error_per_slice=0.0001,
                             depth=10,
                             obp_shots=shots
