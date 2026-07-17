@@ -1,39 +1,22 @@
 import os
-
-from qiskit_addon_obp.utils.truncating import setup_budget
-from qiskit_addon_obp.utils.simplify import OperatorBudget
-from qiskit import ClassicalRegister, transpile
-from qiskit.quantum_info import SparsePauliOp
-import numpy as np
-import qiskit.quantum_info as qi
-from qiskit_aer import AerSimulator
-from qiskit_addon_utils.problem_generators import generate_xyz_hamiltonian
-from qiskit_addon_utils.problem_generators import generate_time_evolution_circuit
-from qiskit.transpiler import CouplingMap, generate_preset_pass_manager
-from qiskit_addon_utils.slicing import slice_by_gate_types
-from qiskit_addon_utils.slicing import combine_slices
-from qiskit.synthesis import LieTrotter
-# from qiskit_addon_obp import backpropagate
-from qiskit_addon_obp.backpropagation import backpropagate
-from qiskit.primitives import StatevectorEstimator
-import time
-from qiskit import qpy
-from qiskit.qasm2 import dumps
-import json
-import pickle
-import random
-from qiskit import QuantumCircuit
-from qiskit_ibm_runtime import EstimatorV2 as Estimator
-import pandas as pd
-from qiskit.circuit.library import QAOAAnsatz
-import rustworkx as rx
-from qiskit_addon_obp.helpers import create_n_regular_graph, build_max_cut_paulis, get_heisenberg, get_qaoa, get_depth, save_to_pickle, generate_heisenberg_circuit
-from qiskit.compiler import transpile
 import math
-from qiskit_aer.primitives import EstimatorV2
-from qiskit_ibm_runtime.fake_provider import FakeLimaV2
+import time
+import pandas as pd
+
+from qiskit_aer import AerSimulator
 from qiskit_aer.noise import NoiseModel
+from qiskit.quantum_info import SparsePauliOp
+from qiskit_aer.primitives import EstimatorV2
+from qiskit.primitives import StatevectorEstimator
+from qiskit_ibm_runtime import EstimatorV2 as Estimator
+from qiskit_ibm_runtime.fake_provider import FakeLimaV2
+from qiskit_addon_utils.slicing import slice_by_gate_types, combine_slices
+
+from qiskit_addon_obp.utils.simplify import OperatorBudget
+from qiskit_addon_obp.backpropagation import backpropagate
+from qiskit_addon_obp.utils.truncating import setup_budget
 from qiskit_addon_obp.benchmarks.benchmark_suite import load_qasmbench
+from qiskit_addon_obp.helpers import get_heisenberg, get_qaoa, get_depth, save_to_pickle, generate_heisenberg_circuit
 
 def process_backpropagated_circuit(obs, circuit, target_depth, max_qwc_groups, max_error_per_slice, coeff_truncate, pauli_truncate, truncation_weight):
     """
@@ -172,7 +155,6 @@ def estimate_circuit(circuit, observable, bp_circuit_trunc, bp_obs_trunc, shots_
             group_weights.append(weight)
             group_errors.append(abs(result_bp_trunc_state - group_result_bp_trunc))
 
-        # print(group_errors)
         result_bp_trunc = 0
         for est, w, s in zip(group_estimates, group_weights, shots_per_group):
             if s > 0:
@@ -413,7 +395,6 @@ def obp_protocol(
                 shots[max_idx] = max_val + obp_shots - sum(shots)
 
             total_shots = sum(shots)
-            # print(shots)
             data_dict_list["bp_exp_shots"], data_dict_list["exact_exp"], data_dict_list['bp_exp_state'] = estimate_circuit(
                                                                                     circuit=circuit, 
                                                                                     observable=data_dict_list['obs'], 
@@ -450,10 +431,6 @@ def obp_protocol(
     sample_observables = []
     for item in all_data_dict_lists:
         sample_observables.append(item["bp_obs"])
-
-    # with open("obp_obs.txt", "a") as f:
-    #     f.write(convert_observables_for_many(sample_observables))
-    #     f.write('\n')
 
     return all_data_dict_lists, pauli_strings_list, pauli_coeffs_list, total_shots
 

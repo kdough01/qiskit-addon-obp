@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 import numpy as np
-import json
 from typing import Dict, Any, Tuple
 import networkx as nx
 import rustworkx as rx
@@ -108,8 +107,6 @@ def make_heisenberg_hamiltonian(
     """
     Build the isotropic Heisenberg XXX Hamiltonian as in the Qiskit algorithms tutorial.
 
-    H = J Σ_{i=0}^{n-2} (X_i X_{i+1} + Y_i Y_{i+1} + Z_i Z_{i+1})
-
     Parameters
     ----------
     num_qubits : int
@@ -140,14 +137,11 @@ def generate_heisenberg_circuit(
     )
     evo_circuit = generate_time_evolution_circuit(hamiltonian, synthesis=synthesis, time=time)
 
-    # Prepend initial state
     qc = QuantumCircuit(num_qubits)
     if initial_state == "neel":
-        # Néel state: alternating |010101...⟩ — breaks Z symmetry, non-trivial dynamics
         for i in range(0, num_qubits, 2):
             qc.x(i)
     elif initial_state == "hadamard":
-        # Equal superposition — maximally uncertain in Z basis
         for i in range(num_qubits):
             qc.h(i)
 
@@ -173,23 +167,16 @@ def get_heisenberg_40(depth):
     """
     Generates a 40-qubit XYZ Heisenberg circuit on a heavy-hex topology.
     """
-    # 1. Generate a larger heavy-hex map (Distance 5 has 65 qubits)
     coupling_map = CouplingMap.from_heavy_hex(5, bidirectional=False)
     
-    # 2. Convert to a NetworkX graph to find a connected subgraph
-    # We ignore edge direction just to find connected neighbors
     edges = [(int(a), int(b)) for a, b in coupling_map.get_edges()]
     G = nx.Graph()
     G.add_edges_from(edges)
     
-    # 3. Use Breadth-First Search (BFS) to grab 40 connected nodes starting from node 0
     connected_40_nodes = list(nx.bfs_tree(G, source=0).nodes())[:40]
     
-    # 4. Reduce the coupling map to these specific 40 qubits
     reduced_coupling_map = coupling_map.reduce(connected_40_nodes)
-    # reduced_coupling_map = CouplingMap.from_line(40)
 
-    # ... Proceed with generate_xyz_hamiltonian and generate_time_evolution_circuit ...
     hamiltonian = generate_xyz_hamiltonian(
         reduced_coupling_map,
         coupling_constants=(np.pi / 8, np.pi / 4, np.pi / 2),
@@ -203,31 +190,3 @@ def get_heisenberg_40(depth):
     )
     
     return circuit
-
-def export_for_old_qiskit(circuits, observables, slices, filename):
-    """
-    Export circuits to a JSON file for use with older versions of Qiskit
-
-    Inputs:
-    - circuits: list of QuantumCircuit - list of circuits to export
-    - observables: list of str - list of observable strings
-    - slices: list of lists of QuantumCircuit - list of circuit slices for each circuit
-    - filename: str - output JSON filename
-    
-    Outputs:
-    - None (writes to file)
-    """
-    circuit_data = []
-    for i, circuit in enumerate(circuits):
-        qasm_str = json.dumps(circuit)
-        
-        circuit_info = {
-            'num_qubits': circuit.num_qubits,
-            'num_clbits': circuit.num_clbits,
-            'name': circuit.name,
-            'qasm': qasm_str
-        }
-        circuit_data.append(circuit_info)
-
-    with open(filename, 'w') as f:
-        json.dump(circuit_data, f, indent=2)
