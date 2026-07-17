@@ -281,10 +281,11 @@ def backpropagate(
             #     ):
             #         break
 
-            remaining_depth = sum(slice_.depth() for slice_ in slices[:-metadata.num_backpropagated_slices-1])
-            if remaining_depth < target_depth:  # target_depth needs to be passed as parameter
-                LOGGER.info(f"Reached target depth {target_depth}, stopping backpropagation")
-                break
+            if target_depth is not None:
+                remaining_depth = sum(slice_.depth() for slice_ in slices[:-metadata.num_backpropagated_slices-1])
+                if remaining_depth < target_depth:
+                    LOGGER.info(f"Reached target depth {target_depth}, stopping backpropagation")
+                    break
 
             # If we have reached this point, we have successfully backpropagated a slice within our
             # thresholds and reflect this by updating our output variables
@@ -401,6 +402,8 @@ def _truncate_terms(
 
     accumulated_error = metadata.accumulated_error(observable_idx, slice_idx)
     left_over_error_budget = metadata.left_over_error_budget(observable_idx, slice_idx)
+
+    slice_error = 0.0
 
     if coeff_truncate and pauli_truncate:
         observable_out, slice_error = truncate_mixed(

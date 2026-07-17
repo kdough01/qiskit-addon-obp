@@ -208,6 +208,10 @@ def truncate_weight(
         p_norm: int = 1,
         truncation_weight: int = 7
 ) -> tuple[SparsePauliOp, float]:
+    """
+    Very simply, if a Pauli has weight greater than the truncation weight, remove it
+    and update the slice_error.
+    """
 
     to_keep = []
     slice_coefs = []
@@ -229,12 +233,44 @@ def truncate_weight(
 def mc_sampling(
         observable: SparsePauliOp,
         p_norm: int = 1,
+        truncation_weight: int = 7
 ) -> tuple[SparsePauliOp, float]:
+    """
+    Ignore for now.
+    """
 
     to_keep = []
     slice_coefs = []
 
     for idx, pauli in enumerate(observable):
+        weight = len([p for p in pauli.paulis[0].to_label() if p != 'I'])
+        if weight < truncation_weight:
+            to_keep.append(idx)
+        else:
+            slice_coefs.append(abs(pauli.coeffs))
+
+    slice_error = np.power(np.sum(np.power(slice_coefs, p_norm)), 1.0 / p_norm)
+
+    return (
+        observable[to_keep] if to_keep else SparsePauliOp([]),
+        slice_error
+    )
+
+def truncate_by_locality(
+        observable: SparsePauliOp,
+        p_norm: int = 1,
+        truncation_weight: int = 7
+) -> tuple[SparsePauliOp, float]:
+    """
+    If we start with a 10-qubit initial observable with two qubits at positions 9 and 10,
+    measuring backpropagated observables with qubits at nonlocal positions doesn't make
+    sense. 
+    """
+    to_keep = []
+    slice_coefs = []
+
+    for idx, pauli in enumerate(observable):
+        # here we need to look at where the Paulis appear
         weight = len([p for p in pauli.paulis[0].to_label() if p != 'I'])
         if weight < truncation_weight:
             to_keep.append(idx)
@@ -272,6 +308,8 @@ def truncate_mixed(
     do not contribute to the error allocation.
     """
 
-    observable, slice_error = truncate_binary_search(observable, budget - slice_error, p_norm=p_norm, tol=tol)
+    observable, coeff_error = truncate_binary_search(observable, budget, p_norm=p_norm, tol=tol)
+
+    # observable, weight_error = truncate_weight(observable, p_norm, truncation_weight)
 
     return truncate_weight(observable, p_norm, truncation_weight)
