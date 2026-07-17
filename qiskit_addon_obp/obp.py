@@ -33,7 +33,7 @@ import math
 from qiskit_aer.primitives import EstimatorV2
 from qiskit_ibm_runtime.fake_provider import FakeLimaV2
 from qiskit_aer.noise import NoiseModel
-from benchmark_suite import load_qasmbench
+from qiskit_addon_obp.benchmarks.benchmark_suite import load_qasmbench
 
 def process_backpropagated_circuit(obs, circuit, target_depth, max_qwc_groups, max_error_per_slice, coeff_truncate, pauli_truncate, truncation_weight):
     """

@@ -32,7 +32,7 @@ from scipy.optimize import minimize
 from qiskit_aer.primitives import EstimatorV2
 from helpers import generate_heisenberg_circuit
 
-from benchmark_suite import load_qasmbench
+from qiskit_addon_obp.benchmarks.benchmark_suite import load_qasmbench
 
 def generate_observables(file, system_size = 10):
     """

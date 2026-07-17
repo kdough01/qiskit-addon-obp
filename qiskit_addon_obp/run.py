@@ -36,7 +36,7 @@ from qiskit_addon_obp.helpers import build_max_cut_paulis, create_n_regular_grap
 import itertools
 from qiskit_aer.primitives import EstimatorV2
 
-from benchmark_suite import load_qasmbench
+from qiskit_addon_obp.benchmarks.benchmark_suite import load_qasmbench
 from helpers import get_heisenberg_40
 
 def measurement(circuit, budget, ps_pc_map, file='obp_obs.txt', measurements_per_observable=100, shots_per_measurement=100, noisy=False, use_weights=True):
