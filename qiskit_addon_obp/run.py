@@ -4,40 +4,21 @@ initial circuit and creating one measurement file with all of this data.
 """
 
 import os
-import sys
 import time
-import pickle
-
-from qiskit_addon_obp.obp import convert_observables_for_many, process_backpropagated_circuit, estimate_circuit, obp_protocol, convert_observables_for_many
-from qiskit_addon_obp.classical_shadows import derandomized_classical_shadow, estimate_exp, generate_shadow_measurements, save_measurements_to_file, generate_statevector_shadow_measurements
-import numpy as np
-from qiskit.synthesis import LieTrotter
-from qiskit.transpiler import CouplingMap
-from qiskit_addon_utils.problem_generators import generate_xyz_hamiltonian
-from qiskit_addon_utils.problem_generators import generate_time_evolution_circuit
 import json
-from qiskit.primitives import StatevectorEstimator
-import pandas as pd
-from qiskit_ibm_runtime import EstimatorV2 as Estimator
-from qiskit_aer import AerSimulator
+import pickle
 import inspect
-from collections import defaultdict
-import random
-import math
-from qiskit.converters import circuit_to_dag
-from qiskit.transpiler.passes import Depth
+import pandas as pd
+import numpy as np
+
+from qiskit.primitives import StatevectorEstimator
 from qiskit.quantum_info import SparsePauliOp
-from qiskit.circuit.library import QAOAAnsatz
-import rustworkx as rx
-from qiskit.compiler import transpile
-from scipy.optimize import minimize
-from qiskit_addon_obp.helpers import build_max_cut_paulis, create_n_regular_graph, get_depth, save_to_pickle, get_heisenberg, get_qaoa, generate_heisenberg_circuit
-# from qiskit_addon_cutting import cut_wires, partition_circuit_qubits, generate_cutting_experiments, reconstruct_expectation_value
-import itertools
 from qiskit_aer.primitives import EstimatorV2
 
+from qiskit_addon_obp.helpers import get_depth, save_to_pickle, get_heisenberg, get_qaoa
+from qiskit_addon_obp.obp import convert_observables_for_many, obp_protocol, convert_observables_for_many
+from qiskit_addon_obp.classical_shadows import derandomized_classical_shadow, estimate_exp, generate_shadow_measurements, save_measurements_to_file, generate_statevector_shadow_measurements
 from qiskit_addon_obp.benchmarks.benchmark_suite import load_qasmbench
-from helpers import get_heisenberg_40
 
 def measurement(circuit, budget, ps_pc_map, file='obp_obs.txt', measurements_per_observable=100, shots_per_measurement=100, noisy=False, use_weights=True):
 
@@ -54,46 +35,10 @@ def measurement(circuit, budget, ps_pc_map, file='obp_obs.txt', measurements_per
         for pauli_XYZ, position in zip(line.split(" ")[1::2], line.split(" ")[2::2]):
             one_observable.append((pauli_XYZ, int(position)))
             obs_string[int(position)] = pauli_XYZ
-        # NOTE: JUST ADDED THIS IN
-        """
-        In theory, gettign rid of observables that are already measured should
-        still give us the same length measurement scheme because derandomization should
-        have been getting rid of them
-        """
         if one_observable not in all_observables:
             obs = ''.join(obs_string)
             all_observables.append(one_observable)
             weight_params.append(ps_pc_map[obs])
-
-        """
-        NOTE: This is the output before we added the two above lines
-        Beginning Derandomization...
-        Total number of measurements: 186450
-            Derandomization took 4624.3725690841675 seconds
-            Derandomization produced a measurement scheme 15383 long
-        Generating Normal Measurements...
-            Number of identity only rounds: 0
-            Number of processed rounds: 15383
-            Generating measurements took 126.86695694923401 seconds
-        Saving measurements to file...
-        Total Time: 4893.248570919037 seconds
-
-        NOTE: This is the output after we added the two above lines
-        Beginning Derandomization...
-        Total number of measurements: 81520
-            Derandomization took 2077.159033060074 seconds
-            Derandomization produced a measurement scheme 15362 long
-        Generating Normal Measurements...
-            Number of identity only rounds: 0
-            Number of processed rounds: 15362
-            Generating measurements took 126.19540023803711 seconds
-        Saving measurements to file...
-        Total Time: 2346.233466863632 seconds
-
-        NOTE: They generate a measurement scheme nearly identical in length. After adding the
-        two lines, though it takes less than half the time. It also seems to be more accurate
-        though that could just be the shadow variation.
-        """
 
     if use_weights:
         print(f"Beginning Derandomization with weight...")
@@ -289,161 +234,6 @@ def convert_obs_to_form(observables):
     
     return '\n'.join(result_lines)
 
-def adaptive(
-        observables,
-        target_depth,
-        budget=4,
-        max_error_per_slice=0.01,
-        measurements_per_observable=10,
-        shots_per_measurement=100,
-        depth=5,
-        noisy=False,
-        obp_shots=10000,
-        coeff_truncate=False,
-        pauli_truncate=False,
-        truncation_weight=7,
-):
-    coupling_map = CouplingMap.from_heavy_hex(3, bidirectional=False)
-    reduced_coupling_map = coupling_map.reduce([0, 13, 1, 14, 10, 16, 5, 12, 8, 18])
-
-    hamiltonian = generate_xyz_hamiltonian(
-                                            reduced_coupling_map,
-                                            coupling_constants=(np.pi / 8, np.pi / 4, np.pi / 2),
-                                            ext_magnetic_field=(np.pi / 3, np.pi / 6, np.pi / 9),
-                                        )
-    circuit = generate_time_evolution_circuit(
-                                                hamiltonian,
-                                                time=0.1,
-                                                synthesis=LieTrotter(reps=depth),
-                                            )
-    print(f"Circuit Depth: {circuit.depth()}")
-
-    with open("obp_obs.txt", "a") as f:
-        f.write(str(len(observables[0])))
-        f.write('\n')
-
-    all_data_dict_lists = []
-    all_pauli_strings_list = []
-    all_pauli_coeffs_list = []
-    for obs in observables:
-        new_data, pauli_strings_list, pauli_coeffs_list = obp_protocol(
-                                                                    obs, 
-                                                                    circuit=circuit, 
-                                                                    target_depth=target_depth, 
-                                                                    max_qwc_groups=budget, 
-                                                                    max_error_per_slice=max_error_per_slice, 
-                                                                    obp_shots=obp_shots, 
-                                                                    coeff_truncate=coeff_truncate,
-                                                                    pauli_truncate=pauli_truncate,
-                                                                    truncation_weight=truncation_weight
-                                                                    )
-        all_data_dict_lists += new_data
-        all_pauli_strings_list.append(pauli_strings_list)
-        all_pauli_coeffs_list.append(pauli_coeffs_list)
-
-    measurement(circuit=all_data_dict_lists[0]['bp_circuit'], budget=budget, measurements_per_observable=measurements_per_observable, shots_per_measurement=shots_per_measurement, noisy=noisy)
-
-    with open('measurements.txt', 'r') as f:
-        content = f.readlines()
-        all_observables = defaultdict(lambda: defaultdict(list))
-        for line in content:
-            for idx, (pauli_XYZ, position) in enumerate(zip(line.split(" ")[0::2], line.split(" ")[1::2])):
-                all_observables[idx][pauli_XYZ].append(int(position))
-
-    ran_sample = random.sample(list(all_observables.items()), 50)
-    pauli_operators = ['X', 'Y', 'Z']
-    new_measurements = ''
-    for new_meas in range(10):
-        new_line = '\n'
-        for idx in range(10):
-            pauli = random.choice(list(ran_sample[idx].keys()))
-            synth_meas = random.choice(ran_sample[idx][pauli]) #random.choice([-1, 1])
-
-            new_line += pauli + ' ' + str(synth_meas) + ' '
-        new_measurements += new_line
-
-    with open('measurements.txt', 'a') as f:
-        f.write(new_measurements)
-
-    sample_observables = reconstruct_pauli_string()
-
-    obs_shad_dict = shadow_estimates_dict(sample_observables)
-    obs_shad_df = obs_shad_exact(circuit, obs_shad_dict)
-
-    # for obs in obs_shad_dict:
-    #     if obs in obs_shad_dict:
-    #         obs_shad_dict[obs]['mean'] = obs_shad_dict[obs]
-    
-    for obs_idx in range(len(observables)):
-        og_shadow_estimates(all_data_dict_lists[obs_idx], all_pauli_strings_list[obs_idx], all_pauli_coeffs_list[obs_idx], obs_shad_dict)
-        all_data_dict_lists[obs_idx]['obs_shad_dict'] = obs_shad_df
-
-    return all_data_dict_lists
-
-def run_circuit_cutting(
-        observables,
-        target_depth,
-        budget=4,
-        max_error_per_slice=0.01,
-        measurements_per_observable=10,
-        shots_per_measurement=100,
-        depth=5,
-        which_circuit=False,
-        noisy=False,
-        obp_shots=10000,
-        coeff_truncate=False,
-        pauli_truncate=False,
-        truncation_weight=7
-        ):
-    coupling_map = CouplingMap.from_heavy_hex(3, bidirectional=False)
-    reduced_coupling_map = coupling_map.reduce([0, 13, 1, 14, 10, 16, 5, 12, 8, 18])
-
-    hamiltonian = generate_xyz_hamiltonian(
-                                            reduced_coupling_map,
-                                            coupling_constants=(np.pi / 8, np.pi / 4, np.pi / 2),
-                                            ext_magnetic_field=(np.pi / 3, np.pi / 6, np.pi / 9),
-                                        )
-    circuit = generate_time_evolution_circuit(
-                                                hamiltonian,
-                                                time=0.1,
-                                                synthesis=LieTrotter(reps=depth),
-                                            )
-    print(f"Circuit Depth: {circuit.depth()}")
-
-    with open("obp_obs.txt", "a") as f:
-        f.write(str(len(observables[0])))
-        f.write('\n')
-
-    all_data_dict_lists = []
-    all_pauli_strings_list = []
-    all_pauli_coeffs_list = []
-    for obs in observables:
-        new_data, pauli_strings_list, pauli_coeffs_list = obp_protocol(
-                                                                    obs, 
-                                                                    circuit=circuit, 
-                                                                    target_depth=target_depth, 
-                                                                    max_qwc_groups=budget, 
-                                                                    max_error_per_slice=max_error_per_slice, 
-                                                                    obp_shots=obp_shots, 
-                                                                    coeff_truncate=coeff_truncate,
-                                                                    pauli_truncate=pauli_truncate,
-                                                                    truncation_weight=truncation_weight
-                                                                    )
-        all_data_dict_lists += new_data
-        all_pauli_strings_list.append(pauli_strings_list)
-        all_pauli_coeffs_list.append(pauli_coeffs_list)
-
-    # first_half, second_half = perform_circuit_cutting(circuit, target_depth)
-
-    # subcircuits = [first_half, second_half]
-    # experiments = generate_cutting_experiments(subcircuits)
-
-    # sim = AerSimulator()
-    # results = [sim.run(exp).result() for exp in experiments]
-
-    # exp_val = reconstruct_expectation_value(results, observables)
-    # print("Expectation value:", exp_val)
-
 def run_many(
         observables,
         circuit_type,
@@ -477,8 +267,6 @@ def run_many(
         # circuit = get_heisenberg_40(depth)
     elif circuit_type == "qasm_bench":
         circuit = load_qasmbench("ising_n26", "medium")
-
-    print(f"Circuit Depth: {circuit.depth()}")
 
     with open("obp_obs.txt", "a") as f:
         f.write(str(len(observables[0])))
@@ -539,195 +327,21 @@ def run_many(
 
     sample_observables = reconstruct_pauli_string()
 
-    # It uses the same shadow estimates for all the backpropagated circuits, which is why we need to make sure the
-    # backpropagated circuits are to the same depth
-    print("Beginning shadow estimates")
     obs_shad_dict = shadow_estimates_dict(sample_observables)
-    print("obs_shad_exact")
+
     obs_shad_df = obs_shad_exact(circuit, obs_shad_dict)
     with open('obs_shad_dict.json', 'w') as f:
         json.dump(obs_shad_df, f)
 
-    print("og shadow estimates")
     for obs_idx in range(len(observables)):
         og_shadow_estimates(all_data_dict_lists[obs_idx], all_pauli_strings_list[obs_idx], all_pauli_coeffs_list[obs_idx], obs_shad_dict)
         all_data_dict_lists[obs_idx]['obs_shad_dict'] = obs_shad_df
 
-    print("finished here")
-    ### IGNORE ####
-    # for obs_idx in range(len(observables)):
-    #     for data_idx in range(len(all_data_dict_lists)):
-    #         og_shadow_estimates(all_data_dict_lists[data_idx], all_pauli_strings_list[obs_idx], all_pauli_coeffs_list[obs_idx], obs_shad_dict)
-
-    # with open("obp_tests.txt", "a") as f:
-    #     for obs_idx, data in enumerate(all_data_dict_lists):
-    #         f.write(f"\n=== Observable {all_data_dict_lists[obs_idx]['obs']} ===\n")
-    #         print(data, file=f)
-
-    ### IGNORE ####
-
     return all_data_dict_lists
-
-def run_many_state_vector(
-        observables,
-        target_depth,
-        budget=4,
-        max_error_per_slice=0.01,
-        measurements_per_observable=10,
-        shots_per_measurement=100,
-        depth=5,
-        which_circuit=False,
-        noisy=False,
-        obp_shots=10000,
-        coeff_truncate=False,
-        pauli_truncate=False,
-        truncation_weight=7,
-        ):
-    """
-    Inputs:
-    - observables: list - takes in a list of observables, even if only entering one observable, must be of list form
-    - which_circuit: bool - if True, the original circuit will be used, otherwise, if False, the backpropagated circuits will be used
-    """
-
-    coupling_map = CouplingMap.from_heavy_hex(3, bidirectional=False)
-    reduced_coupling_map = coupling_map.reduce([0, 13, 1, 14, 10, 16, 5, 12, 8, 18])
-
-    hamiltonian = generate_xyz_hamiltonian(
-                                            reduced_coupling_map,
-                                            coupling_constants=(np.pi / 8, np.pi / 4, np.pi / 2),
-                                            ext_magnetic_field=(np.pi / 3, np.pi / 6, np.pi / 9),
-                                        )
-    circuit = generate_time_evolution_circuit(
-                                                hamiltonian,
-                                                time=0.1,
-                                                synthesis=LieTrotter(reps=depth),
-                                            )
-    print(f"Circuit Depth: {circuit.depth()}")
-
-    with open("obp_obs.txt", "a") as f:
-        f.write(str(len(observables[0])))
-        f.write('\n')
-
-    all_data_dict_lists = []
-    all_pauli_strings_list = []
-    all_pauli_coeffs_list = []
-    for obs in observables:
-        new_data, pauli_strings_list, pauli_coeffs_list = obp_protocol(
-                                                                    obs, 
-                                                                    circuit=circuit, 
-                                                                    target_depth=target_depth, 
-                                                                    max_qwc_groups=budget, 
-                                                                    max_error_per_slice=max_error_per_slice, 
-                                                                    obp_shots=obp_shots, 
-                                                                    coeff_truncate=coeff_truncate,
-                                                                    pauli_truncate=pauli_truncate,
-                                                                    truncation_weight=truncation_weight
-                                                                    )
-        all_data_dict_lists += new_data
-        all_pauli_strings_list.append(pauli_strings_list)
-        all_pauli_coeffs_list.append(pauli_coeffs_list)
-
-    if which_circuit:
-        measurement(circuit=circuit, budget=budget, measurements_per_observable=measurements_per_observable, shots_per_measurement=shots_per_measurement, noisy=noisy)
-    else:
-        measurement(circuit=all_data_dict_lists[0]['bp_circuit'], budget=budget, measurements_per_observable=measurements_per_observable, shots_per_measurement=shots_per_measurement, noisy=noisy)
-
-    # print(obs_shad_dict)
-
-    sample_observables = reconstruct_pauli_string()
-
-    # It uses the same shadow estimates for all the backpropagated circuits, which is why we need to make sure the
-    # backpropagated circuits are to the same depth
-    obs_shad_dict = shadow_estimates_dict(sample_observables)
-    obs_shad_df = obs_shad_exact(circuit, obs_shad_dict)
-    with open('obs_shad_dict.json', 'w') as f:
-        json.dump(obs_shad_df, f)
-
-    for obs_idx in range(len(observables)):
-        og_shadow_estimates_state_vector(all_data_dict_lists[obs_idx], all_pauli_strings_list[obs_idx], all_pauli_coeffs_list[obs_idx], obs_shad_dict)
-        # all_data_dict_lists[obs_idx]['obs_shad_dict'] = obs_shad_df
-
-    # for obs_idx in range(len(observables)):
-    #     for data_idx in range(len(all_data_dict_lists)):
-    #         og_shadow_estimates(all_data_dict_lists[data_idx], all_pauli_strings_list[obs_idx], all_pauli_coeffs_list[obs_idx], obs_shad_dict)
-
-    # with open("obp_tests.txt", "a") as f:
-    #     for obs_idx, data in enumerate(all_data_dict_lists):
-    #         f.write(f"\n=== Observable {all_data_dict_lists[obs_idx]['obs']} ===\n")
-    #         print(data, file=f)
-
-    return all_data_dict_lists
-
-def normal_state_vector():
-    data_path = os.path.abspath(os.path.join(os.getcwd(), 'state_vector_data'))
-    filename = f'{data_path}/coef-trunc_init90_bp5_obs3.pkl'
-
-    meas_per_obs = 1
-    data_list = []
-    start = time.time()
-    new_data = run_many_state_vector(observables=["ZZIIIIIIII", "ZXIIIIIIII", "ZYIIIIIIII",
-                                    #  "XXIIIIIIII", "XZIIIIIIII", "XYIIIIIIII",
-                                    #  "YYIIIIIIII", "YZIIIIIIII", "YXIIIIIIII",
-
-                                    #  "IZZIIIIIII", "IZXIIIIIII", "IZYIIIIIII",
-                                    #  "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
-                                    #  "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
-
-                                    #  "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
-                                    #  "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
-                                    #  "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
-
-                                    #  "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
-                                    #  "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
-                                    #  "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
-                                     ],
-                        budget=10,
-                        target_depth=5,
-                        max_error_per_slice=0.0001,
-                        measurements_per_observable=meas_per_obs,
-                        shots_per_measurement=1,
-                        depth=10,
-                        which_circuit=False,
-                        noisy=False,
-                        obp_shots=10000,
-                        coeff_truncate=True,
-                        pauli_truncate=False,
-                        truncation_weight=7)
-    end = time.time()
-    
-    data_list += new_data
-
-    df = pd.DataFrame(data_list)
-
-    df['num_meas'] = meas_per_obs
-    df['circuit_depth'] = df['circuit'].apply(get_depth)
-    df['bp_circuit_depth'] = df['bp_circuit'].apply(get_depth)
-
-
-    df['abs_bp_error_shots'] = abs(df['exact_exp'] - df['bp_exp_shots'])
-    df['bp_error_shots'] = df['exact_exp'] - df['bp_exp_shots']
-
-    df['abs_bp_error_state'] = abs(df['exact_exp'] - df['bp_exp_state'])
-    df['bp_error_state'] = df['exact_exp'] - df['bp_exp_state']
-
-    df['abs_total_error'] = abs(df['exact_exp'] - df['total_exp'])
-
-    df['total_error'] = df['exact_exp'] - df['total_exp']
-
-    save_to_pickle(df, filename)
-
-    with open('measurements.txt', 'w') as f:
-        pass
-
-    with open('obp_obs.txt', 'w') as f:
-        pass
-
-    print(f"Total Time: {end - start} seconds")
 
 def normal():
     data_path = os.path.abspath(os.path.join(os.getcwd(), 'data3'))
     filename = f'{data_path}/pauli-trunc7_init90_bp5_obs9.pkl'
-    #coef-trunc_init90_bp10_obs36
 
     data_list = []
     start = time.time()
@@ -827,84 +441,6 @@ def normal():
 
     if os.path.exists('measurements.pkl'):
         os.remove('measurements.pkl')
-
-    print(f"Total Time: {end - start} seconds")
-
-def new():
-    data_path = os.path.abspath(os.path.join(os.getcwd(), 'data_adaptive'))
-    filename = f'{data_path}/test.pkl'
-
-    obp_shots = 1000
-    data_list = []
-    start = time.time()
-    new_data = adaptive(observables=["ZZIIIIIIII", "ZXIIIIIIII", "ZYIIIIIIII",
-                                    #  "XXIIIIIIII", "XZIIIIIIII", "XYIIIIIIII",
-                                    #  "YYIIIIIIII", "YZIIIIIIII", "YXIIIIIIII",
-
-                                    #  "IZZIIIIIII", "IZXIIIIIII", "IZYIIIIIII",
-                                    #  "IXXIIIIIII", "IXZIIIIIII", "IXYIIIIIII",
-                                    #  "IYYIIIIIII", "IYZIIIIIII", "IYXIIIIIII",
-
-                                    #  "IIZZIIIIII", "IIZXIIIIII", "IIZYIIIIII",
-                                    #  "IIXXIIIIII", "IIXZIIIIII", "IIXYIIIIII",
-                                    #  "IIYYIIIIII", "IIYZIIIIII", "IIYXIIIIII",
-
-                                    #  "IIIZZIIIII", "IIIZXIIIII", "IIIZYIIIII",
-                                    #  "IIIXXIIIII", "IIIXZIIIII", "IIIXYIIIII",
-                                    #  "IIIYYIIIII", "IIIYZIIIII", "IIIYXIIIII"
-                                     ],
-                        budget=10,
-                        target_depth=70,
-                        max_error_per_slice=0.0001,
-                        measurements_per_observable=10,
-                        shots_per_measurement=10,
-                        depth=10,
-                        noisy=False,
-                        obp_shots=obp_shots,
-                        coeff_truncate=True,
-                        pauli_truncate=False,
-                        truncation_weight=7)
-    end = time.time()
-    
-    if new_data:
-        with open('measurements.txt', 'r') as f:
-            file = f.readlines()
-            file_length = len(file) - 1
-        data_list += new_data
-
-        with open('meas_again.txt' , 'r') as fi:
-            new_file = fi.readlines()
-            new_file_length = len(new_file) - 1
-
-    df = pd.DataFrame(data_list)
-
-    print(f'lenght of file is {file_length}')
-    df['num_meas'] = file_length #+ (new_file_length) * obp_shots
-    print(df['num_meas'])
-    df['circuit_depth'] = df['circuit'].apply(get_depth)
-    df['bp_circuit_depth'] = df['bp_circuit'].apply(get_depth)
-
-
-    df['abs_bp_error_shots'] = abs(df['exact_exp'] - df['bp_exp_shots'])
-    df['bp_error_shots'] = df['exact_exp'] - df['bp_exp_shots']
-
-    df['abs_bp_error_state'] = abs(df['exact_exp'] - df['bp_exp_state'])
-    df['bp_error_state'] = df['exact_exp'] - df['bp_exp_state']
-
-    df['abs_total_error'] = abs(df['exact_exp'] - df['total_exp'])
-
-    df['total_error'] = df['exact_exp'] - df['total_exp']
-
-    save_to_pickle(df, filename)
-
-    with open('measurements.txt', 'w') as f:
-        pass
-
-    with open('obp_obs.txt', 'w') as f:
-        pass
-
-    with open('meas_again.txt', 'w') as f:
-        pass
 
     print(f"Total Time: {end - start} seconds")
 

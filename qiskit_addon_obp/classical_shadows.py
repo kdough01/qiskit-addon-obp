@@ -1,37 +1,29 @@
 #
-# This code is created by Hsin-Yuan Huang (https://momohuang.github.io/).
+# This code (generate_observables, randomized_classical_shadow, derandomized_classical_shadow, estimate_exp)
+# is created by Hsin-Yuan Huang (https://momohuang.github.io/).
 # For more details, see the accompany paper:
 #  "Predicting Many Properties of a Quantum System from Very Few Measurements".
 # This Python version is slower than the C++ version. (there are less code optimization)
 # But it should be easier to understand and build upon.
 #
 import os
-import random
 import math
 import random
+import pickle
+import numpy as np
+import pandas as pd
+
+from qiskit import ClassicalRegister
 from qiskit_aer import AerSimulator
 from qiskit_ibm_runtime.fake_provider import FakeLimaV2
 from qiskit_aer.noise import NoiseModel
-from qiskit import ClassicalRegister, QuantumCircuit
-import numpy as np
-import json
-from qiskit.qasm3 import dumps as qasm3_dumps
-from qiskit_addon_obp.obp import convert_observables
 from qiskit.quantum_info import SparsePauliOp
-from qiskit.synthesis import LieTrotter
-from qiskit.transpiler import CouplingMap
-from qiskit_addon_utils.problem_generators import generate_xyz_hamiltonian, generate_time_evolution_circuit
-import pandas as pd
 from qiskit.primitives import StatevectorEstimator
-from collections import defaultdict
-from qiskit_addon_obp.helpers import build_max_cut_paulis, create_n_regular_graph, get_depth, save_to_pickle, get_heisenberg, get_qaoa
-from qiskit.circuit.library import QAOAAnsatz
-import rustworkx as rx
-from qiskit.compiler import transpile
-from scipy.optimize import minimize
 from qiskit_aer.primitives import EstimatorV2
-from helpers import generate_heisenberg_circuit
 
+from qiskit_addon_obp.obp import convert_observables
+from qiskit_addon_obp.helpers import save_to_pickle, get_heisenberg, get_qaoa
+from helpers import generate_heisenberg_circuit
 from qiskit_addon_obp.benchmarks.benchmark_suite import load_qasmbench
 
 def generate_observables(file, system_size = 10):
@@ -232,69 +224,16 @@ def estimate_exp(full_measurement, one_observable):
 
     return sum_product, cnt_match, products
 
-def generate_statevector_shadow_measurements(measurement_scheme, quantum_state_circuit):
-    """
-    Generate shot-noise-free shadow measurements by computing exact single-qubit expectation values
-    for the derandomized measurement scheme. This gives you the measurement outcomes that would
-    feed into the classical shadow estimator, but without any shot noise.
-    
-    Returns measurement data in the same format as the noisy version, but with exact values.
-    """
-    
-    system_size = len(measurement_scheme[0])
-    estimator = StatevectorEstimator()
-    result_lines = [f"{system_size}"]
-    
-    # Store all single-qubit expectation values we compute
-    observable_outcomes = defaultdict(list)
-    
-    print(f"Computing shot-noise-free shadow measurements for {len(measurement_scheme)} rounds...")
-    
-    for round_idx, measurement_round in enumerate(measurement_scheme):
-        if round_idx % 100 == 0:
-            print(f"  Processing round {round_idx}/{len(measurement_scheme)}")
-        
-        line = []
-        
-        # For each qubit in this measurement round, get the exact expectation value
-        for qubit_idx, pauli_op in enumerate(measurement_round):
-            if pauli_op in ['X', 'Y', 'Z']:
-                # Create single-qubit Pauli observable
-                pauli_string = 'I' * qubit_idx + pauli_op + 'I' * (system_size - qubit_idx - 1)
-                observable = SparsePauliOp.from_list([(pauli_string, 1.0)])
-                
-                # Get exact expectation value (this eliminates shot noise)
-                job = estimator.run([(quantum_state_circuit, observable)])
-                result = job.result()
-                expectation_value = result[0].data.evs.real
-                
-                # Store for shadow reconstruction
-                observable_key = (qubit_idx, pauli_op)
-                observable_outcomes[observable_key].append(expectation_value)
-                
-                line.append(f"{pauli_op} {expectation_value}")
-            elif pauli_op == 'I':
-                # Identity measurements
-                line.append(f"I 1.0")
-        
-        result_lines.append(' '.join(line))
-    
-    return '\n'.join(result_lines)
-
-def generate_shadow_measurements(measurement_scheme, budget, quantum_state_circuit, 
-                                 shots_per_measurement=100, noisy=False):
+def generate_shadow_measurements(measurement_scheme, budget, quantum_state_circuit, shots_per_measurement=100, noisy=False):
     
     system_size = len(measurement_scheme[0])
     
     if noisy:
-        print("USING NOISY SIM")
-        simulator = AerSimulator(noise_model=NoiseModel.from_backend(FakeLimaV2()), 
-                                method="matrix_product_state")
+        simulator = AerSimulator(noise_model=NoiseModel.from_backend(FakeLimaV2()), method="matrix_product_state")
     else:
-        # simulator = AerSimulator(options={"backend_options": {"method": "matrix_product_state"}})
         simulator = AerSimulator(method="matrix_product_state")
 
-    all_outcomes = []          # List of (pauli_list, outcome_list) tuples
+    all_outcomes = []
     
     print(f"    Generating {len(measurement_scheme)} measurement rounds × {shots_per_measurement} shots...")
 
@@ -359,17 +298,8 @@ def convert_pauli(state_circuit, pauli_string):
     
     return circuit
 
-# def save_measurements_to_file(measurements, filename='measurements.txt'):
-#     """Save measurement data to file."""
-#     with open(filename, 'a') as f:
-#         f.write(measurements)
-#     # print(f"Measurements saved to '{filename}'")
-
-import pickle
-from collections import defaultdict
-
 def save_measurements_to_file(measurements, filename='measurements.pkl'):
-    """Much faster: Save as binary pickle instead of huge text file"""
+    """Much faster - Save as binary pickle instead of huge text file"""
     with open(filename, 'wb') as f:
         pickle.dump(measurements, f, protocol=pickle.HIGHEST_PROTOCOL)
     print(f"Saved {len(measurements):,} measurement outcomes to {filename}")
@@ -449,19 +379,9 @@ def run_shadow(sample_observables, circuit_type, n, k, measurements_per_observab
                                                 )
     save_measurements_to_file(measurements, filename='measurements.txt')
 
-    # with open('measurements.txt') as f:
-    #     measurements = f.readlines()
-
     full_measurement = load_measurements('measurements.pkl')
 
     num_meas = len(measurements) - 1
-
-    # full_measurement = []
-    # for line in measurements[1:]:
-    #     single_meaurement = []
-    #     for pauli_XYZ, outcome in zip(line.split(" ")[0::2], line.split(" ")[1::2]):
-    #         single_meaurement.append((pauli_XYZ, int(outcome)))
-    #     full_measurement.append(single_meaurement)
 
     shadows = []
     for line in content[1:]:
@@ -470,9 +390,7 @@ def run_shadow(sample_observables, circuit_type, n, k, measurements_per_observab
             one_observable.append((pauli_XYZ, int(position)))
         sum_product, cnt_match, products = estimate_exp(full_measurement, one_observable)
         shadows.append(sum_product / cnt_match)
-        # print(sum_product / cnt_match)
 
-    print(sample_observables)
     i = 0
     obs_dict = {}
     for one_obs, estimate in zip(content[1:], shadows):
@@ -485,7 +403,6 @@ def run_shadow(sample_observables, circuit_type, n, k, measurements_per_observab
         result_exact = (state_vector_estimator.run([(circuit, sample_observables[i])]).result()[0]).data.evs.item()
         obs_dict[sample_observables[i]] = (estimate, result_exact)
         i += 1
-        # print(f"Observable: {one_obs.strip()}, Estimate: {estimate}")
 
     return obs_dict, num_meas
 

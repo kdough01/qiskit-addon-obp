@@ -2,24 +2,17 @@ import os
 import pandas as pd
 import numpy as np
 import json
-import pickle
-from qiskit.quantum_info import SparsePauliOp
-from qiskit.circuit.library import QAOAAnsatz
+from typing import Dict, Any, Tuple
+import networkx as nx
 import rustworkx as rx
-from qiskit.compiler import transpile
-from qiskit.synthesis import LieTrotter
-from qiskit.transpiler import CouplingMap
-from qiskit_addon_utils.problem_generators import generate_xyz_hamiltonian
-from qiskit_addon_utils.problem_generators import generate_time_evolution_circuit
-
-from typing import Dict, Any, Optional, Tuple
-import numpy as np
 
 from qiskit import QuantumCircuit
 from qiskit.quantum_info import SparsePauliOp
+from qiskit.circuit.library import QAOAAnsatz
+from qiskit.compiler import transpile
 from qiskit.synthesis import LieTrotter, SuzukiTrotter
-
-import networkx as nx
+from qiskit.transpiler import CouplingMap
+from qiskit_addon_utils.problem_generators import generate_xyz_hamiltonian, generate_time_evolution_circuit
 
 def get_depth(circuit):
     return circuit.depth()
